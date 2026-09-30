@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบจัดการลูกหนี้</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: #f5f6fa; color: #333; }
+header { background: #4f46e5; color: white; padding: 20px; text-align: center; }
+header h1 { margin: 0; font-size: 24px; }
+.container { max-width: 900px; margin: auto; padding: 15px; }
+.dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+.card { background: white; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 6px #ddd; }
+.card h3 { margin: 0; font-size: 14px; color: #666; }
+.card p { font-size: 20px; font-weight: bold; margin: 10px 0 0; }
+.box { background: white; padding: 18px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 6px #ddd; }
+input { width: 100%; padding: 13px; margin: 6px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+button { width: 100%; padding: 13px; margin-top: 8px; border: none; border-radius: 8px; background: #4f46e5; color: white; font-size: 16px; cursor: pointer; }
+.customer { background: white; padding: 18px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 6px #ddd; }
+.customer h2 { margin-top: 0; }
+.debt { background: #f8f9ff; border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-top: 10px; }
+.remain { color: #dc2626; font-weight: bold; }
+.paid { color: #059669; font-weight: bold; }
+@media (max-width: 600px) {
+    .dashboard { grid-template-columns: 1fr; }
+    header h1 { font-size: 21px; }
+}
+</style>
+</head>
+<body>
+<header>
+    <h1>💰 ระบบจัดการลูกหนี้</h1>
+    <p>จัดการข้อมูลลูกค้าและรายการหนี้</p>
+</header>
+
+<div class="container">
+    <div class="dashboard">
+        <div class="card"><h3>👥 ลูกค้า</h3><p id="customerCount">0 คน</p></div>
+        <div class="card"><h3>💰 หนี้ทั้งหมด</h3><p id="totalDebt">0 บาท</p></div>
+        <div class="card"><h3>⚠️ ยอดค้าง</h3><p id="totalRemain">0 บาท</p></div>
+    </div>
+
+    <div class="box">
+        <h2>➕ เพิ่มลูกค้า</h2>
+        <input type="text" id="name" placeholder="ชื่อลูกค้า">
+        <input type="tel" id="phone" placeholder="เบอร์โทรศัพท์">
+        <button onclick="addCustomer()">เพิ่มลูกค้า</button>
+    </div>
+
+    <div class="box">
+        <input type="text" id="search" placeholder="🔍 ค้นหาชื่อลูกค้า" oninput="displayCustomers()">
+    </div>
+
+    <div id="customerList"></div>
+</div>
+
+<script>
+let customers = [];
+
+function addCustomer() {
+    const name = document.getElementById("name").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+
+    if (!name || !phone) {
+        alert("กรุณากรอกชื่อและเบอร์โทรศัพท์");
+        return;
+    }
+
+    customers.push({
+        id: Date.now(),
+        name: name,
+        phone: phone,
+        debts: []
+    });
+
+    document.getElementById("name").value = "";
+    document.getElementById("phone").value = "";
+
+    displayCustomers();
+    updateDashboard();
+}
+
+function addDebt(customerId) {
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer) return;
+
+    const title = prompt("ชื่อรายการหนี้");
+    if (!title) return;
+
+    const amount = Number(prompt("จำนวนเงินที่เป็นหนี้"));
+
+    if (!amount || amount <= 0) {
+        alert("กรุณากรอกจำนวนเงินให้ถูกต้อง");
+        return;
+    }
+
+    customer.debts.push({
+        id: Date.now(),
+        title: title,
+        amount: amount,
+        paid: 0
+    });
+
+    displayCustomers();
+    updateDashboard();
+}
+
+function addPayment(customerId, debtId) {
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer) return;
+
+    const debt = customer.debts.find(d => d.id === debtId);
+    if (!debt) return;
+
+    const remain = debt.amount - debt.paid;
+    const amount = Number(
+        prompt("ยอดคงเหลือ " + remain.toLocaleString() + " บาท\n\nกรอกจำนวนเงินที่จ่าย")
+    );
+
+    if (!amount || amount <= 0) return;
+
+    if (amount > remain) {
+        alert("จ่ายเกินยอดหนี้");
+        return;
+    }
+
+    debt.paid += amount;
+
+    displayCustomers();
+    updateDashboard();
+}
+
+function displayCustomers() {
+    const list = document.getElementById("customerList");
+    const search = document.getElementById("search").value.toLowerCase();
+
+    list.innerHTML = "";
+
+    customers
+        .filter(customer => customer.name.toLowerCase().includes(search))
+        .forEach(customer => {
+            let totalDebt = 0;
+            let totalPaid = 0;
+
+            customer.debts.forEach(debt => {
+                totalDebt += debt.amount;
+                totalPaid += debt.paid;
+            });
+
+            const totalRemain = totalDebt - totalPaid;
+
+            let debtsHTML = "";
+
+            customer.debts.forEach(debt => {
+                const remain = debt.amount - debt.paid;
+
+                debtsHTML += `
+                    <div class="debt">
+                        <h3>📦 ${debt.title}</h3>
+                        <p>หนี้: ${debt.amount.toLocaleString()} บาท</p>
+                        <p class="paid">จ่ายแล้ว: ${debt.paid.toLocaleString()} บาท</p>
+                        <p class="remain">คงเหลือ: ${remain.toLocaleString()} บาท</p>
+                        ${
+                            remain > 0
+                            ? `<button onclick="addPayment(${customer.id}, ${debt.id})">💵 บันทึกการจ่าย</button>`
+                            : `<p class="paid">✅ ชำระครบแล้ว</p>`
+                        }
+                    </div>
+                `;
+            });
+
+            list.innerHTML += `
+                <div class="customer">
+                    <h2>👤 ${customer.name}</h2>
+                    <p>📞 ${customer.phone}</p>
+                    <hr>
+                    <p>💰 หนี้ทั้งหมด: ${totalDebt.toLocaleString()} บาท</p>
+                    <p class="paid">💵 จ่ายแล้ว: ${totalPaid.toLocaleString()} บาท</p>
+                    <p class="remain">⚠️ คงเหลือ: ${totalRemain.toLocaleString()} บาท</p>
+                    <h3>📋 รายการหนี้</h3>
+                    ${debtsHTML || "<p>ยังไม่มีรายการหนี้</p>"}
+                    <button onclick="addDebt(${customer.id})">➕ เพิ่มรายการหนี้</button>
+                </div>
+            `;
+        });
+}
+
+function updateDashboard() {
+    document.getElementById("customerCount").innerText = customers.length + " คน";
+
+    let totalDebt = 0;
+    let totalRemain = 0;
+
+    customers.forEach(customer => {
+        customer.debts.forEach(debt => {
+            totalDebt += debt.amount;
+            totalRemain += debt.amount - debt.paid;
+        });
+    });
+
+    document.getElementById("totalDebt").innerText =
+        totalDebt.toLocaleString() + " บาท";
+
+    document.getElementById("totalRemain").innerText =
+        totalRemain.toLocaleString() + " บาท";
+}
+
+displayCustomers();
+updateDashboard();
+</script>
+</body>
+</html>
